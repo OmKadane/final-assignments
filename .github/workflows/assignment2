@@ -1,0 +1,56 @@
+name: Deploy to Staging with Approval
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  notify-for-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Approval Request Email 📧
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_HOST }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: 'Pending Deployment Approval for ${{ github.repository }}'
+          to: stakeholder@example.com
+          from: GitHub Actions <actions@github.com>
+          body: 'A new deployment to the staging environment is awaiting your approval. Please review the changes in the "Actions" tab.'
+
+  deploy-staging:
+    needs: notify-for-approval # Runs after the notification job
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging # This targets the environment with the approval rule
+      url: https://staging.example.com
+    steps:
+      - name: Checkout Code 🛎️
+        uses: actions/checkout@v4
+
+      # ... (Add your Build steps from Assignment 1 here) ...
+
+      - name: Deploy to Staging Server 🚀
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USERNAME }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "dist/"
+          target: "/var/www/staging-app"
+
+      - name: Send Deployment Success Email ✅
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_HOST }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: '✅ Successful Staging Deployment for ${{ github.repository }}'
+          to: stakeholder@example.com
+          from: GitHub Actions <actions@github.com>
+          body: 'Deployment to staging has been successfully completed by ${{ github.actor }}.'
