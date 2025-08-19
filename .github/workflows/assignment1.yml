@@ -1,0 +1,84 @@
+# This is the name of the workflow, which will appear in the "Actions" tab of your GitHub repository.
+name: Deploy to Staging
+
+# This section defines when the workflow will run.
+on:
+  # It triggers on any push event...
+  push:
+    # ...but only for the 'staging' branch.
+    branches:
+      - staging
+
+# This section defines the jobs that will be executed.
+jobs:
+  # We have a single job named 'build-and-deploy'.
+  build-and-deploy:
+    # This specifies that the job will run on the latest version of an Ubuntu virtual machine.
+    runs-on: ubuntu-latest
+
+    # These are the sequential steps that make up the job.
+    steps:
+      # Step 1: Check out your repository's code so the workflow can access it.
+      - name: Checkout Code 🛎️
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the Node.js environment. Change '20' if you use a different version.
+      # If your project doesn't use Node.js, replace this step with the setup for your language (e.g., Python, Ruby).
+      - name: Setup Node.js Environment ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Step 3: Install dependencies and build the application.
+      # These commands are typical for a JavaScript project. Replace them with your project's specific build commands.
+      - name: Install Dependencies & Build Application 🛠️
+        run: |
+          npm install
+          npm run build
+
+      # Step 4: Decode the Base64 encoded SSH private key.
+      # This is necessary because GitHub Secrets cannot store multi-line text directly.
+      # The decoded key is stored in an environment variable for the next step to use.
+      - name: Decode SSH Private Key 🔑
+        run: echo "DECODED_KEY=$(echo ${{ secrets.STAGING_SSH_KEY }} | base64 -d)" >> $GITHUB_ENV
+
+      # Step 5: Copy the built files to your staging server using SCP.
+      - name: Deploy to Staging Server via SCP 🚀
+        uses: appleboy/scp-action@master
+        with:
+          # Your server's IP address or hostname, from GitHub Secrets.
+          host: ${{ secrets.STAGING_HOST }}
+          # The username for SSH login, from GitHub Secrets.
+          username: ${{ secrets.STAGING_USERNAME }}
+          # The decoded private SSH key from the previous step.
+          key: ${{ env.DECODED_KEY }}
+          # The SSH port, which is almost always 22.
+          port: 22
+          # The local directory containing the files you want to upload (your build output).
+          source: "dist/"
+          # The destination directory on your remote server.
+          target: "/var/www/staging-app"
+
+      # Step 6: Send a notification to Slack if the deployment was successful.
+      # The 'if: success()' condition ensures this step only runs if all previous steps passed.
+      - name: Send Slack Notification ✅
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          # The payload contains the message content formatted for Slack.
+          payload: |
+            {
+              "text": "✅ Deployment to staging for `${{ github.repository }}` was successful!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚀 *Staging Deployment Successful*\n*Repository:* `${{ github.repository }}`\n*Commit:* `${{ github.sha }}`\n*Triggered by:* `${{ github.actor }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          # Your Slack webhook URL, from GitHub Secrets.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
