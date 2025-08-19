@@ -1,0 +1,66 @@
+name: Staging and Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/staging' # Condition to run only for 'staging' branch
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging
+    steps:
+      - name: Record Start Time ⏱️
+        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+      # ... (Checkout and Build steps) ...
+
+      - name: Deploy to Staging Server 🚀
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "dist/"
+          target: "/var/www/staging-app"
+
+      - name: Calculate Duration & Notify 📢
+        if: always() # Run even if previous steps fail
+        run: |
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          echo "DURATION_STRING=$(printf '%dh:%dm:%ds\n' $(($DURATION/3600)) $(($DURATION%3600/60)) $(($DURATION%60)))" >> $GITHUB_ENV
+      
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Staging deployment status: ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🚀 Staging Deployment: `${{ job.status }}`*\n*Commit:* `${{ github.event.head_commit.message }}`\n*Duration:* `${{ env.DURATION_STRING }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.STAGING_SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main' # Condition to run only for 'main' branch
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+    steps:
+      # ... (Identical Start Time, Checkout, Build, Deploy, and Duration steps, but for production) ...
+      # Make sure to change the target directory on the server if needed.
+
+      - name: Send Slack & Email Notification
+        # ... (Similar notification step, but using production secrets and tailored messages) ...
