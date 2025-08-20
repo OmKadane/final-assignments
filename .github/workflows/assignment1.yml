@@ -32,7 +32,6 @@ jobs:
       # Step 3: Install dependencies and build the application.
       # These commands are typical for a JavaScript project. Replace them with your project's specific build commands.
       - name: Install Dependencies & Build Application 🛠️
-        working-directory: ./final-assignments
         run: |
           npm install
           npm run build
