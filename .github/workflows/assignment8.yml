@@ -16,7 +16,6 @@ jobs:
 
       # Step 2: Build your site (Customize this step)
       - name: Build Site 🛠️
-        working-directory: ./final-assignments
         run: |
           npm install
           npm run build
