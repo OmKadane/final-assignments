@@ -1,0 +1,57 @@
+name: Deploy to Netlify
+
+# Trigger the workflow on a push to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out your repository's code
+      - name: Checkout Code 🛎️
+        uses: actions/checkout@v4
+
+      # Step 2: Build your site (Customize this step)
+      - name: Build Site 🛠️
+        run: |
+          npm install
+          npm run build
+
+      # Step 3: Deploy to Netlify
+      # This action handles the entire deployment process to Netlify
+      - name: Deploy to Netlify 🚀
+        uses: nwtgck/actions-netlify@v2.1
+        with:
+          # IMPORTANT: Change './dist' to your site's build output directory
+          publish-dir: './dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 1
+
+      # Step 4: Send deployment status email
+      # The 'if: always()' condition ensures this step runs on both success and failure
+      - name: Send Deployment Email 📧
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_HOST }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: 'Netlify Deployment Status for ${{ github.repository }}: ${{ job.status }}'
+          to: your.email@example.com # IMPORTANT: Change this to your email
+          from: GitHub Actions <actions@github.com>
+          body: |
+            The deployment job for the repository `${{ github.repository }}` has finished.
+
+            Status: `${{ job.status }}`
+            Commit: `${{ github.event.head_commit.message }}`
+            Triggered by: `${{ github.actor }}`
+
+            You can view the build logs here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
